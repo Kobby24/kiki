@@ -1,17 +1,36 @@
+import hashlib
+import hmac
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
-from pwdlib import PasswordHash
 from app.core.config import get_settings
 
-password_hash = PasswordHash.recommended()
+_OTP_ALPHABET = string.digits
 
 
-def hash_password(password: str) -> str:
-    return password_hash.hash(password)
+def generate_otp_code(length: int | None = None) -> str:
+    """Generate a cryptographically random numeric OTP code."""
+    settings = get_settings()
+    length = length or settings.otp_length
+    return "".join(secrets.choice(_OTP_ALPHABET) for _ in range(length))
 
 
-def verify_password(password: str, hashed: str) -> bool:
-    return password_hash.verify(password, hashed)
+def hash_otp_code(phone_number: str, purpose: str, code: str) -> str:
+    """HMAC an OTP code so plaintext codes are never persisted.
+
+    The phone number and purpose are folded into the message so a hash
+    cannot be replayed for a different phone number or a different flow
+    (e.g. a login code can't be reused to satisfy a registration check).
+    """
+    settings = get_settings()
+    message = f"{purpose}:{phone_number}:{code}".encode()
+    return hmac.new(settings.jwt_secret_key.encode(), message, hashlib.sha256).hexdigest()
+
+
+def verify_otp_code(phone_number: str, purpose: str, code: str, code_hash: str) -> bool:
+    candidate = hash_otp_code(phone_number, purpose, code)
+    return hmac.compare_digest(candidate, code_hash)
 
 
 def create_access_token(subject: str) -> str:

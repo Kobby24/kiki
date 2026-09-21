@@ -8,9 +8,12 @@ from app.db.base import Base
 class User(Base):
     __tablename__ = "users"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(Text)
-    phone_number: Mapped[str | None] = mapped_column(String(30))
+    phone_number: Mapped[str] = mapped_column(
+        String(20), unique=True, index=True, nullable=False
+    )
+    # Set once the phone number has been proven via OTP; used to gate
+    # login and to record when the account became trustworthy.
+    phone_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     preferred_language: Mapped[str] = mapped_column(String(10), default="tw")
     accessibility_preferences: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
