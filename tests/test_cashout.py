@@ -1,14 +1,27 @@
 import pytest
 
+# Stable stand-ins for the old email identities. Auth is phone + OTP.
+_PHONES = {
+    "demo@example.com": "+233241000001",
+    "owner@example.com": "+233241000002",
+    "other@example.com": "+233241000003",
+    "pin@example.com": "+233241000004",
+}
+
 
 async def register_and_login(client, email):
-    await client.post(
-        "/api/v1/auth/register", json={"email": email, "password": "strong-password"}
+    phone = _PHONES[email]
+    requested = await client.post(
+        "/api/v1/auth/register/request-otp",
+        json={"phone_number": phone},
     )
-    response = await client.post(
-        "/api/v1/auth/login", json={"email": email, "password": "strong-password"}
+    assert requested.status_code == 200, requested.text
+    verified = await client.post(
+        "/api/v1/auth/register/verify-otp",
+        json={"phone_number": phone, "code": requested.json()["debug_code"]},
     )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    assert verified.status_code == 201, verified.text
+    return {"Authorization": f"Bearer {verified.json()['access_token']}"}
 
 
 @pytest.mark.asyncio
